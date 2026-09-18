@@ -1,0 +1,1666 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0A0A0F" />
+  <title>Callo — Dark Premium Dialer</title>
+  <style>
+    :root {
+      --bg-deep: #0A0A0F;
+      --bg-surface: #12121C;
+      --bg-elevated: #1A1A28;
+      --neon-purple: #7C5CFC;
+      --neon-blue: #4F75FF;
+      --call-green: #00D68F;
+      --call-glow: #00FFAB;
+      --end-red: #FF3B30;
+      --warning-yellow: #FFB800;
+      --text-primary: #FFFFFF;
+      --text-secondary: #8E8E9F;
+      --text-tertiary: #5C5C70;
+      --border-glass: rgba(255, 255, 255, 0.12);
+      --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #050508;
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 16px;
+    }
+
+    /* iPhone Frame Simulator */
+    .device-wrapper {
+      width: 100%;
+      max-width: 412px;
+      height: 870px;
+      max-height: 94vh;
+      background: var(--bg-deep);
+      border-radius: 54px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 0 0 12px #26262b, 0 0 0 14px #121214, 0 35px 80px rgba(0, 0, 0, 0.95), 0 0 60px rgba(124, 92, 252, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* Dynamic Island */
+    .dynamic-island {
+      position: absolute;
+      top: 11px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 124px;
+      height: 35px;
+      background: #000;
+      border-radius: 20px;
+      z-index: 999;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .island-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--call-green);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .island-pill.active {
+      opacity: 1;
+    }
+
+    .island-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--call-green);
+      border-radius: 50%;
+      animation: pulseGreen 1.5s infinite;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
+    }
+
+    /* Status Bar */
+    .status-bar {
+      height: 52px;
+      padding: 14px 28px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 100;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Container */
+    .app-screen {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-page {
+      position: absolute;
+      inset: 0;
+      bottom: 85px;
+      display: none;
+      flex-direction: column;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 20px 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-page.active {
+      display: flex;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Top Bar */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0 16px;
+    }
+
+    .page-title {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .gear-btn, .action-icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-glass);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.2s ease;
+    }
+
+    .gear-btn:hover, .action-icon-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text-primary);
+      transform: scale(1.05);
+    }
+
+    /* --- TAB: KEYPAD --- */
+    .keypad-display {
+      text-align: center;
+      min-height: 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .number-preview {
+      font-size: 38px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+      word-break: break-all;
+    }
+
+    .add-contact-pill {
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--neon-purple);
+      background: rgba(124, 92, 252, 0.15);
+      border: 1px solid rgba(124, 92, 252, 0.3);
+      padding: 5px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .add-contact-pill.visible {
+      display: inline-flex;
+    }
+
+    .keypad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 76px);
+      gap: 16px 24px;
+      justify-content: center;
+      margin: auto 0 20px;
+    }
+
+    .dialer-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      transition: all 0.12s cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .dialer-btn:active {
+      transform: scale(0.91);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .dialer-btn .digit {
+      font-size: 32px;
+      font-weight: 300;
+      line-height: 1;
+      color: var(--text-primary);
+    }
+
+    .dialer-btn .letters {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .keypad-bottom-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 20px;
+    }
+
+    .keypad-dummy {
+      width: 76px;
+      height: 76px;
+    }
+
+    .call-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--call-green), #00B074);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 28px rgba(0, 214, 143, 0.55), 0 8px 20px rgba(0, 0, 0, 0.5);
+      border: none;
+      transition: all 0.15s ease;
+    }
+
+    .call-btn:active {
+      transform: scale(0.92);
+      box-shadow: 0 0 16px rgba(0, 214, 143, 0.7);
+    }
+
+    .call-btn svg {
+      width: 32px;
+      height: 32px;
+      fill: #fff;
+    }
+
+    .backspace-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      visibility: hidden;
+    }
+
+    .backspace-btn.visible {
+      visibility: visible;
+    }
+
+    .backspace-btn:active {
+      transform: scale(0.9);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* --- FLOATING TAB BAR --- */
+    .tab-bar-dock {
+      position: absolute;
+      bottom: 18px;
+      left: 20px;
+      right: 20px;
+      height: 64px;
+      background: rgba(18, 18, 28, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 32px;
+      border: 1px solid var(--border-glass);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+      z-index: 50;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.2s;
+      flex: 1;
+      height: 100%;
+    }
+
+    .tab-item.active {
+      color: var(--neon-purple);
+    }
+
+    .tab-item svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+      transition: transform 0.2s;
+    }
+
+    .tab-item.active svg {
+      transform: translateY(-1px);
+    }
+
+    .tab-item span {
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* --- TAB: RECENTS --- */
+    .filter-pills {
+      display: flex;
+      background: var(--bg-surface);
+      border-radius: 20px;
+      padding: 4px;
+      border: 1px solid var(--border-glass);
+      margin-bottom: 16px;
+    }
+
+    .filter-btn {
+      flex: 1;
+      text-align: center;
+      padding: 6px 0;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+      background: var(--neon-purple);
+      color: #fff;
+    }
+
+    .call-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .call-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      transition: background 0.15s;
+    }
+
+    .call-card:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .call-card-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .call-dir-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .call-dir-icon.incoming {
+      background: rgba(0, 214, 143, 0.15);
+      color: var(--call-green);
+    }
+
+    .call-dir-icon.outgoing {
+      background: rgba(79, 117, 255, 0.15);
+      color: var(--neon-blue);
+    }
+
+    .call-dir-icon.missed {
+      background: rgba(255, 59, 48, 0.15);
+      color: var(--end-red);
+    }
+
+    .call-info h4 {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .call-info h4.missed-text {
+      color: var(--end-red);
+    }
+
+    .call-info p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .dial-small-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(0, 214, 143, 0.15);
+      border: 1px solid rgba(0, 214, 143, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--call-green);
+      transition: transform 0.1s;
+    }
+
+    .dial-small-btn:active {
+      transform: scale(0.9);
+    }
+
+    /* --- TAB: CONTACTS --- */
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      margin-bottom: 16px;
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      width: 100%;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      margin: 12px 0 8px;
+    }
+
+    .favorites-scroll {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      scrollbar-width: none;
+    }
+
+    .favorites-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .fav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .avatar-ring {
+      width: 62px;
+      height: 62px;
+      border-radius: 50%;
+      padding: 2px;
+      background: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .avatar-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .fav-name {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      max-width: 66px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* --- TAB: VOICEMAIL --- */
+    .voicemail-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-glass);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .vm-transcript {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(124, 92, 252, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+      margin: 10px 0;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #e2e2ea;
+    }
+
+    .vm-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--neon-purple);
+      margin-bottom: 6px;
+    }
+
+    .audio-player {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .audio-play-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--neon-purple);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .audio-bar {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .audio-fill {
+      width: 35%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue));
+      border-radius: 3px;
+    }
+
+    /* --- IN-CALL FULLSCREEN OVERLAY --- */
+    .incall-overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--bg-deep);
+      z-index: 500;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 60px 24px 44px;
+      background: radial-gradient(circle at top, rgba(124, 92, 252, 0.25), var(--bg-deep) 70%);
+      animation: slideUp 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .incall-overlay.active {
+      display: flex;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .security-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+    }
+
+    .security-badge svg {
+      width: 12px;
+      height: 12px;
+      fill: var(--call-green);
+    }
+
+    .caller-avatar-glow {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+    }
+
+    .caller-ring {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      background: conic-gradient(from 0deg, var(--neon-purple), var(--neon-blue), var(--call-green), var(--neon-purple)) border-box;
+      -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      animation: rotateRing 8s linear infinite;
+    }
+
+    @keyframes rotateRing {
+      to { transform: rotate(360deg); }
+    }
+
+    .caller-inner {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1f1f2e, #12121c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 44px;
+      font-weight: 300;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 40px rgba(124, 92, 252, 0.3);
+    }
+
+    .caller-name {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .caller-number {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-family: monospace;
+      text-align: center;
+    }
+
+    .call-timer {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--call-green);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Soundwave Equalizer Canvas */
+    .soundwave-box {
+      width: 180px;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px auto;
+    }
+
+    #visualizerCanvas {
+      width: 140px;
+      height: 32px;
+    }
+
+    .incall-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 76px);
+      gap: 18px 24px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .incall-ctrl-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .incall-icon-circle {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+      transition: all 0.2s;
+    }
+
+    .incall-icon-circle.active {
+      background: rgba(124, 92, 252, 0.3);
+      border-color: var(--neon-purple);
+      color: #fff;
+    }
+
+    .incall-icon-circle.mute-active {
+      background: rgba(255, 59, 48, 0.25);
+      border-color: var(--end-red);
+      color: var(--end-red);
+    }
+
+    .incall-ctrl-btn span {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .end-call-btn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FF453A, #D70015);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 25px rgba(255, 59, 48, 0.55), 0 8px 20px rgba(0, 0, 0, 0.5);
+      transition: transform 0.15s;
+    }
+
+    .end-call-btn:active {
+      transform: scale(0.92);
+    }
+
+    .end-call-btn svg {
+      width: 32px;
+      height: 32px;
+      fill: #fff;
+      transform: rotate(135deg);
+    }
+
+    /* Modal Sheet Styling */
+    .modal-sheet {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      z-index: 600;
+      display: none;
+      align-items: flex-end;
+    }
+
+    .modal-sheet.active {
+      display: flex;
+    }
+
+    .sheet-card {
+      width: 100%;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-glass);
+      border-radius: 28px 28px 0 0;
+      padding: 24px;
+      animation: sheetPop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+
+    @keyframes sheetPop {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 0 auto 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="device-wrapper">
+    <!-- Dynamic Island -->
+    <div class="dynamic-island">
+      <div class="island-pill" id="islandPill">
+        <div class="island-dot"></div>
+        <span id="islandTime">00:00</span>
+      </div>
+      <div style="width: 12px; height: 12px; border-radius: 50%; background: #111;"></div>
+    </div>
+
+    <!-- iOS Status Bar -->
+    <div class="status-bar">
+      <span id="systemClock">09:41</span>
+      <div class="status-icons">
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor">
+          <rect x="0" y="8" width="3" height="4" rx="0.5"/>
+          <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.5"/>
+          <rect x="9" y="3" width="3" height="9" rx="0.5"/>
+          <rect x="13.5" y="0.5" width="3" height="11.5" rx="0.5"/>
+        </svg>
+        <span style="font-size: 11px; font-weight: 700;">5G</span>
+        <svg width="22" height="11" viewBox="0 0 25 12" fill="currentColor">
+          <rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" fill="none" stroke-width="1"/>
+          <rect x="3" y="3" width="14" height="6" rx="1.5" fill="currentColor"/>
+          <path d="M22 4C23 4.5 23 7.5 22 8" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Application Body Screens -->
+    <div class="app-screen">
+
+      <!-- ================= 1. KEYPAD TAB ================= -->
+      <div class="tab-page active" id="tab-keypad">
+        <div class="header-bar">
+          <div style="width: 40px;"></div>
+          <div class="page-title" style="font-size: 20px; font-weight: 600; color: var(--text-secondary);">Callo Dialer</div>
+          <button class="gear-btn" onclick="openSettings()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="keypad-display">
+          <div class="number-preview" id="numberDisplay"></div>
+          <div class="add-contact-pill" id="addContactBtn" onclick="promptAddContact()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Dodaj do kontaktów
+          </div>
+        </div>
+
+        <div class="keypad-grid">
+          <div class="dialer-btn" onclick="pressKey('1', '')"><span class="digit">1</span><span class="letters">&nbsp;</span></div>
+          <div class="dialer-btn" onclick="pressKey('2', 'ABC')"><span class="digit">2</span><span class="letters">ABC</span></div>
+          <div class="dialer-btn" onclick="pressKey('3', 'DEF')"><span class="digit">3</span><span class="letters">DEF</span></div>
+          
+          <div class="dialer-btn" onclick="pressKey('4', 'GHI')"><span class="digit">4</span><span class="letters">GHI</span></div>
+          <div class="dialer-btn" onclick="pressKey('5', 'JKL')"><span class="digit">5</span><span class="letters">JKL</span></div>
+          <div class="dialer-btn" onclick="pressKey('6', 'MNO')"><span class="digit">6</span><span class="letters">MNO</span></div>
+          
+          <div class="dialer-btn" onclick="pressKey('7', 'PQRS')"><span class="digit">7</span><span class="letters">PQRS</span></div>
+          <div class="dialer-btn" onclick="pressKey('8', 'TUV')"><span class="digit">8</span><span class="letters">TUV</span></div>
+          <div class="dialer-btn" onclick="pressKey('9', 'WXYZ')"><span class="digit">9</span><span class="letters">WXYZ</span></div>
+          
+          <div class="dialer-btn" onclick="pressKey('*', '')"><span class="digit">*</span><span class="letters">&nbsp;</span></div>
+          <div class="dialer-btn" onclick="pressKey('0', '+')"><span class="digit">0</span><span class="letters">+</span></div>
+          <div class="dialer-btn" onclick="pressKey('#', '')"><span class="digit">#</span><span class="letters">&nbsp;</span></div>
+        </div>
+
+        <div class="keypad-bottom-row">
+          <div class="keypad-dummy"></div>
+          <button class="call-btn" onclick="initiateCall()">
+            <svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.047 15.047 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.399 11.399 0 018.57 3.99c.07-.55-.38-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.61c0-.55-.45-1-1-1z"/></svg>
+          </button>
+          <div class="backspace-btn" id="backspaceBtn" onclick="deleteDigit()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 2. RECENTS TAB ================= -->
+      <div class="tab-page" id="tab-recents">
+        <div class="header-bar">
+          <div class="page-title">Ostatnie</div>
+          <button class="action-icon-btn" onclick="clearRecents()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+
+        <div class="filter-pills">
+          <div class="filter-btn active" id="filterAll" onclick="filterCalls('all')">Wszystkie</div>
+          <div class="filter-btn" id="filterMissed" onclick="filterCalls('missed')">Nieodebrane</div>
+        </div>
+
+        <div class="call-list" id="recentsList">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- ================= 3. CONTACTS TAB ================= -->
+      <div class="tab-page" id="tab-contacts">
+        <div class="header-bar">
+          <div class="page-title">Kontakty</div>
+          <button class="action-icon-btn" onclick="promptAddContact()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+        </div>
+
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--text-secondary)"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input type="text" id="contactSearchInput" placeholder="Szukaj po nazwisku lub numerze..." oninput="filterContacts(this.value)" />
+        </div>
+
+        <div class="section-label">ULUBIONE</div>
+        <div class="favorites-scroll" id="favsRow">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="section-label" style="margin-top: 20px;">WSZYSTKIE OSOBY</div>
+        <div class="call-list" id="contactsList">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- ================= 4. VOICEMAIL TAB ================= -->
+      <div class="tab-page" id="tab-voicemail">
+        <div class="header-bar">
+          <div class="page-title">Poczta głosowa</div>
+          <button class="action-icon-btn" onclick="alert('Domyślne powitanie HD Voice aktywne.')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          </button>
+        </div>
+
+        <div id="voicemailList">
+          <!-- Populated by JavaScript -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================= FLOATING TAB BAR ================= -->
+    <div class="tab-bar-dock">
+      <div class="tab-item active" onclick="switchTab('keypad')">
+        <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+        <span>Klawiatura</span>
+      </div>
+      <div class="tab-item" onclick="switchTab('recents')">
+        <svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+        <span>Ostatnie</span>
+      </div>
+      <div class="tab-item" onclick="switchTab('contacts')">
+        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+        <span>Kontakty</span>
+      </div>
+      <div class="tab-item" onclick="switchTab('voicemail')">
+        <svg viewBox="0 0 24 24"><path d="M18.5 6C15.46 6 13 8.46 13 11.5c0 1.33.47 2.55 1.26 3.5H9.74c.79-.95 1.26-2.17 1.26-3.5C11 8.46 8.54 6 5.5 6S0 8.46 0 11.5 2.46 17 5.5 17h13c3.04 0 5.5-2.46 5.5-5.5S21.54 6 18.5 6zM5.5 15C3.57 15 2 13.43 2 11.5S3.57 8 5.5 8 9 9.57 9 11.5 7.43 15 5.5 15zm13 0c-1.93 0-3.5-1.57-3.5-3.5S16.57 8 18.5 8s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5z"/></svg>
+        <span>Poczta</span>
+      </div>
+    </div>
+
+    <!-- ================= FULLSCREEN IN-CALL OVERLAY ================= -->
+    <div class="incall-overlay" id="inCallModal">
+      <div>
+        <div class="security-badge">
+          <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 16l-4-4 1.41-1.41L11 14.17l6.59-6.59L19 9l-8 8z"/></svg>
+          HD VOICE • 256-BIT SZYFROWANIE
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; align-items: center;">
+        <div class="caller-avatar-glow">
+          <div class="caller-ring"></div>
+          <div class="caller-inner" id="inCallInitials">AW</div>
+        </div>
+        <div class="caller-name" id="inCallName">Aleksandra Wiśniewska</div>
+        <div class="caller-number" id="inCallNumber">+48 501 234 567</div>
+        <div class="call-timer" id="inCallStatus">Łączenie...</div>
+        
+        <div class="soundwave-box">
+          <canvas id="visualizerCanvas"></canvas>
+        </div>
+      </div>
+
+      <div style="width: 100%;">
+        <div class="incall-grid">
+          <div class="incall-ctrl-btn" onclick="toggleMute()">
+            <div class="incall-icon-circle" id="muteIconCircle">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </div>
+            <span id="muteLabel">Wycisz</span>
+          </div>
+
+          <div class="incall-ctrl-btn" onclick="alert('Klawiatura tonowa DTMF aktywna.')">
+            <div class="incall-icon-circle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+            </div>
+            <span>Klawisze</span>
+          </div>
+
+          <div class="incall-ctrl-btn" onclick="toggleSpeaker()">
+            <div class="incall-icon-circle" id="speakerIconCircle">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            </div>
+            <span id="speakerLabel">Głośnik</span>
+          </div>
+
+          <div class="incall-ctrl-btn" onclick="alert('Dodano zaproszenie konferencyjne do szyfrowanego pokoju.')">
+            <div class="incall-icon-circle">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </div>
+            <span>Dodaj</span>
+          </div>
+
+          <div class="incall-ctrl-btn" onclick="toggleVideo()">
+            <div class="incall-icon-circle" id="videoIconCircle">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            </div>
+            <span id="videoLabel">FaceTime</span>
+          </div>
+
+          <div class="incall-ctrl-btn" onclick="toggleHold()">
+            <div class="incall-icon-circle" id="holdIconCircle">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            </div>
+            <span id="holdLabel">Wstrzymaj</span>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: center;">
+          <button class="end-call-btn" onclick="endCall()">
+            <svg viewBox="0 0 24 24"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.047 15.047 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.399 11.399 0 018.57 3.99c.07-.55-.38-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.61c0-.55-.45-1-1-1z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= SETTINGS MODAL ================= -->
+    <div class="modal-sheet" id="settingsModal" onclick="if(event.target===this) closeSettings()">
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="font-size: 20px; font-weight: 700;">Ustawienia Callo</h3>
+          <span style="color: var(--neon-purple); font-weight: 600; cursor: pointer;" onclick="closeSettings()">Gotowe</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 14px;">
+            <div>
+              <div style="font-weight: 600; font-size: 14px;">Wyciszaj nieznane</div>
+              <div style="color: var(--text-secondary); font-size: 11px;">Kieruj obce numery do poczty</div>
+            </div>
+            <input type="checkbox" checked style="transform: scale(1.3); accent-color: var(--neon-purple);" />
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 14px;">
+            <div>
+              <div style="font-weight: 600; font-size: 14px;">Kodek HD Voice+ (Opus)</div>
+              <div style="color: var(--text-secondary); font-size: 11px;">Aktywne szyfrowanie SRTP</div>
+            </div>
+            <input type="checkbox" checked style="transform: scale(1.3); accent-color: var(--call-green);" />
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.04); border-radius: 14px;">
+            <div>
+              <div style="font-weight: 600; font-size: 14px;">Haptyka Taptic Engine</div>
+              <div style="color: var(--text-secondary); font-size: 11px;">Wibracje przycisków</div>
+            </div>
+            <input type="checkbox" checked style="transform: scale(1.3); accent-color: var(--neon-purple);" />
+          </div>
+
+          <div style="padding: 12px; background: rgba(255,255,255,0.04); border-radius: 14px;">
+            <div style="font-weight: 600; font-size: 14px; margin-bottom: 6px;">Dzwonek połączenia</div>
+            <select style="width: 100%; background: #0c0c14; color: #fff; border: 1px solid var(--border-glass); border-radius: 8px; padding: 8px; outline: none;">
+              <option>Neon Pulse (Domyślny)</option>
+              <option>Cosmic Bell</option>
+              <option>Minimal Glass</option>
+              <option>Obsidian Glow</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- AUDIO & DTMF SYNTHESIZER (Web Audio API) ---
+    let audioCtx = null;
+    const dtmfFrequencies = {
+      '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+      '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+      '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+      '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+    };
+
+    function playDTMF(digit) {
+      if (!window.AudioContext && !window.webkitAudioContext) return;
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const freqs = dtmfFrequencies[digit];
+      if (!freqs) return;
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc1.frequency.value = freqs[0];
+      osc2.frequency.value = freqs[1];
+
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      osc1.start();
+      osc2.start();
+      osc1.stop(audioCtx.currentTime + 0.12);
+      osc2.stop(audioCtx.currentTime + 0.12);
+    }
+
+    // --- DATA STATE ---
+    let currentDigits = "";
+    let callInterval = null;
+    let callSeconds = 0;
+    let isCallActive = false;
+    let activeCaller = { name: "Aleksandra Wiśniewska", number: "+48 501 234 567", initials: "AW" };
+
+    let isMuted = false;
+    let isSpeaker = false;
+    let isVideo = false;
+    let isOnHold = false;
+
+    let recents = [
+      { name: "Aleksandra Wiśniewska", number: "+48 501 234 567", type: "incoming", duration: "4 min 05 s", time: "12 min temu" },
+      { name: "Tomasz Zieliński", number: "+48 512 888 999", type: "missed", duration: "Nieodebrane", time: "1 godz. temu" },
+      { name: "Michał Lewandowski", number: "+48 602 987 654", type: "outgoing", duration: "1 min 52 s", time: "3 godz. temu" },
+      { name: "Karolina Dąbrowska", number: "+48 793 456 789", type: "missed", duration: "Nieodebrane", time: "Wczoraj" },
+      { name: "Kurier DHL", number: "+48 22 555 44 33", type: "incoming", duration: "45 s", time: "2 dni temu" }
+    ];
+
+    let contacts = [
+      { name: "Aleksandra Wiśniewska", number: "+48 501 234 567", company: "Design Director", isFav: true, initials: "AW" },
+      { name: "Michał Lewandowski", number: "+48 602 987 654", company: "Tech Lead", isFav: true, initials: "ML" },
+      { name: "Karolina Dąbrowska", number: "+48 793 456 789", company: "Product Manager", isFav: true, initials: "KD" },
+      { name: "Bartosz Nowak", number: "+48 504 777 888", company: "Partner", isFav: true, initials: "BN" },
+      { name: "Ewa Kowalczyk", number: "+48 691 112 233", company: "Security Architect", isFav: false, initials: "EK" },
+      { name: "Tomasz Zieliński", number: "+48 512 888 999", company: "VP Operations", isFav: false, initials: "TZ" }
+    ];
+
+    let voicemails = [
+      {
+        name: "Aleksandra Wiśniewska",
+        number: "+48 501 234 567",
+        duration: "00:38",
+        time: "2 godz. temu",
+        transcript: "Cześć Mikołaj! Przejrzałam najnowsze makiety interfejsu dialera i wyglądają rewelacyjnie. Daj mi znać kiedy masz chwilę, żeby omówić szczegóły wdrożenia. Pozdrawiam!"
+      },
+      {
+        name: "Michał Lewandowski",
+        number: "+48 602 987 654",
+        duration: "00:52",
+        time: "14 godz. temu",
+        transcript: "Hej, serwer SIP i bramka WebRTC są już skonfigurowane na środowisku stagingowym z pełnym szyfrowaniem SRTP. Czekam na Twój sygnał do testów."
+      }
+    ];
+
+    // --- CLOCK ---
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('systemClock').innerText = `${h}:${m}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // --- KEYPAD FORMATTING ---
+    function formatNumber(str) {
+      if (!str) return "";
+      if (str.startsWith("+")) {
+        return str.replace(/(\+\d{2})(\d{3})?(\d{3})?(\d{3})?/, (m, p1, p2, p3, p4) => {
+          let res = p1;
+          if (p2) res += " " + p2;
+          if (p3) res += " " + p3;
+          if (p4) res += " " + p4;
+          return res;
+        });
+      } else {
+        return str.replace(/(\d{3})(?=\d)/g, '$1 ');
+      }
+    }
+
+    function pressKey(digit, letters) {
+      playDTMF(digit);
+      if (navigator.vibrate) navigator.vibrate(12);
+      if (currentDigits.length < 15) {
+        currentDigits += digit;
+        renderKeypad();
+      }
+    }
+
+    function deleteDigit() {
+      if (navigator.vibrate) navigator.vibrate(10);
+      currentDigits = currentDigits.slice(0, -1);
+      renderKeypad();
+    }
+
+    function renderKeypad() {
+      const display = document.getElementById('numberDisplay');
+      const addBtn = document.getElementById('addContactBtn');
+      const bsp = document.getElementById('backspaceBtn');
+
+      display.innerText = formatNumber(currentDigits);
+      if (currentDigits.length > 0) {
+        addBtn.classList.add('visible');
+        bsp.classList.add('visible');
+      } else {
+        addBtn.classList.remove('visible');
+        bsp.classList.remove('visible');
+      }
+    }
+
+    // --- TABS SWITCHING ---
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-page').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+
+      const tabsOrder = ['keypad', 'recents', 'contacts', 'voicemail'];
+      const index = tabsOrder.indexOf(tabName);
+      if (index !== -1) {
+        document.querySelectorAll('.tab-item')[index].classList.add('active');
+      }
+
+      if (tabName === 'recents') renderRecents();
+      if (tabName === 'contacts') renderContacts();
+      if (tabName === 'voicemail') renderVoicemail();
+    }
+
+    // --- CALL FLOW ---
+    function initiateCall(number, name) {
+      const targetNum = number || formatNumber(currentDigits) || "+48 501 234 567";
+      let targetName = name || null;
+
+      if (!targetName) {
+        const found = contacts.find(c => c.number.replace(/\s+/g, '') === targetNum.replace(/\s+/g, ''));
+        if (found) targetName = found.name;
+      }
+
+      activeCaller = {
+        name: targetName || targetNum,
+        number: targetNum,
+        initials: targetName ? targetName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase() : "HD"
+      };
+
+      document.getElementById('inCallName').innerText = activeCaller.name;
+      document.getElementById('inCallNumber').innerText = activeCaller.number;
+      document.getElementById('inCallInitials').innerText = activeCaller.initials;
+      document.getElementById('inCallStatus').innerText = "Łączenie...";
+      document.getElementById('inCallModal').classList.add('active');
+
+      isCallActive = true;
+      callSeconds = 0;
+      isMuted = false;
+      isSpeaker = false;
+      isVideo = false;
+      isOnHold = false;
+      updateControlStates();
+
+      // Dynamic island animation
+      document.getElementById('islandPill').classList.add('active');
+      document.getElementById('islandTime').innerText = "Łączenie";
+
+      setTimeout(() => {
+        if (!isCallActive) return;
+        document.getElementById('inCallStatus').innerText = "00:00";
+        startCallTimer();
+        startSoundwave();
+      }, 1200);
+    }
+
+    function startCallTimer() {
+      clearInterval(callInterval);
+      callInterval = setInterval(() => {
+        callSeconds++;
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        const formatted = `${mins}:${secs}`;
+        document.getElementById('inCallStatus').innerText = formatted;
+        document.getElementById('islandTime').innerText = formatted;
+      }, 1000);
+    }
+
+    function endCall() {
+      clearInterval(callInterval);
+      stopSoundwave();
+      isCallActive = false;
+
+      recents.unshift({
+        name: activeCaller.name,
+        number: activeCaller.number,
+        type: "outgoing",
+        duration: callSeconds > 0 ? `${callSeconds} s` : "1 s",
+        time: "Przed chwilą"
+      });
+
+      document.getElementById('inCallStatus').innerText = "Połączenie zakończone";
+      document.getElementById('islandPill').classList.remove('active');
+
+      setTimeout(() => {
+        document.getElementById('inCallModal').classList.remove('active');
+        currentDigits = "";
+        renderKeypad();
+      }, 500);
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      updateControlStates();
+    }
+
+    function toggleSpeaker() {
+      isSpeaker = !isSpeaker;
+      updateControlStates();
+    }
+
+    function toggleVideo() {
+      isVideo = !isVideo;
+      updateControlStates();
+    }
+
+    function toggleHold() {
+      isOnHold = !isOnHold;
+      if (isOnHold) {
+        stopSoundwave();
+        document.getElementById('inCallStatus').innerText = "Wstrzymano";
+      } else {
+        startSoundwave();
+      }
+      updateControlStates();
+    }
+
+    function updateControlStates() {
+      const muteCircle = document.getElementById('muteIconCircle');
+      muteCircle.className = 'incall-icon-circle' + (isMuted ? ' mute-active' : '');
+      document.getElementById('muteLabel').innerText = isMuted ? "Wyciszony" : "Wycisz";
+
+      const spkCircle = document.getElementById('speakerIconCircle');
+      spkCircle.className = 'incall-icon-circle' + (isSpeaker ? ' active' : '');
+
+      const vidCircle = document.getElementById('videoIconCircle');
+      vidCircle.className = 'incall-icon-circle' + (isVideo ? ' active' : '');
+
+      const hldCircle = document.getElementById('holdIconCircle');
+      hldCircle.className = 'incall-icon-circle' + (isOnHold ? ' active' : '');
+      document.getElementById('holdLabel').innerText = isOnHold ? "Wznów" : "Wstrzymaj";
+    }
+
+    // --- ANIMATED SOUNDWAVE VISUALIZER (CANVAS) ---
+    let animFrame = null;
+    function startSoundwave() {
+      const canvas = document.getElementById('visualizerCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = 140;
+      canvas.height = 32;
+
+      let step = 0;
+      function draw() {
+        if (!isCallActive || isOnHold) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        step += 0.15;
+
+        const barsCount = 9;
+        const barWidth = 4;
+        const gap = 8;
+        const startX = (canvas.width - (barsCount * (barWidth + gap) - gap)) / 2;
+
+        for (let i = 0; i < barsCount; i++) {
+          const offset = i * 0.45;
+          const sine = Math.sin(step + offset) * 0.5 + 0.5;
+          const centerWeight = 1.0 - (Math.abs(i - 4) / 5.0);
+          const barHeight = Math.max(6, sine * 24 * centerWeight + 4);
+
+          const grad = ctx.createLinearGradient(0, canvas.height, 0, 0);
+          grad.addColorStop(0, '#7C5CFC');
+          grad.addColorStop(0.5, '#4F75FF');
+          grad.addColorStop(1, '#00D68F');
+
+          ctx.fillStyle = grad;
+          const x = startX + i * (barWidth + gap);
+          const y = (canvas.height - barHeight) / 2;
+
+          ctx.beginPath();
+          ctx.roundRect(x, y, barWidth, barHeight, 3);
+          ctx.fill();
+        }
+        animFrame = requestAnimationFrame(draw);
+      }
+      cancelAnimationFrame(animFrame);
+      draw();
+    }
+
+    function stopSoundwave() {
+      cancelAnimationFrame(animFrame);
+      const canvas = document.getElementById('visualizerCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // --- RECENTS RENDERING ---
+    let currentFilter = 'all';
+    function filterCalls(type) {
+      currentFilter = type;
+      document.getElementById('filterAll').classList.toggle('active', type === 'all');
+      document.getElementById('filterMissed').classList.toggle('active', type === 'missed');
+      renderRecents();
+    }
+
+    function renderRecents() {
+      const container = document.getElementById('recentsList');
+      container.innerHTML = "";
+      const filtered = recents.filter(c => currentFilter === 'all' || c.type === 'missed');
+
+      filtered.forEach(call => {
+        const div = document.createElement('div');
+        div.className = 'call-card';
+        div.innerHTML = `
+          <div class="call-card-left">
+            <div class="call-dir-icon ${call.type}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                ${call.type === 'outgoing' ? '<path d="M9 5v2h6.59L4 18.59 5.41 20 17 8.41V15h2V5H9z"/>' : '<path d="M20 5.41L18.59 4 7 15.59V9H5v10h10v-2H8.41L20 5.41z"/>'}
+              </svg>
+            </div>
+            <div class="call-info">
+              <h4 class="${call.type === 'missed' ? 'missed-text' : ''}">${call.name}</h4>
+              <p>${call.duration} • ${call.time}</p>
+            </div>
+          </div>
+          <button class="dial-small-btn" onclick="initiateCall('${call.number}', '${call.name}')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.047 15.047 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.399 11.399 0 018.57 3.99c.07-.55-.38-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.61c0-.55-.45-1-1-1z"/></svg>
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function clearRecents() {
+      if (confirm("Czy na pewno chcesz wyczyścić historię ostatnich połączeń?")) {
+        recents = [];
+        renderRecents();
+      }
+    }
+
+    // --- CONTACTS RENDERING ---
+    function renderContacts(query = "") {
+      const favsRow = document.getElementById('favsRow');
+      favsRow.innerHTML = "";
+      contacts.filter(c => c.isFav).forEach(fav => {
+        const item = document.createElement('div');
+        item.className = 'fav-item';
+        item.onclick = () => initiateCall(fav.number, fav.name);
+        item.innerHTML = `
+          <div class="avatar-ring"><div class="avatar-inner">${fav.initials}</div></div>
+          <div class="fav-name">${fav.name.split(" ")[0]}</div>
+        `;
+        favsRow.appendChild(item);
+      });
+
+      const list = document.getElementById('contactsList');
+      list.innerHTML = "";
+      const filtered = contacts.filter(c => c.name.toLowerCase().includes(query.toLowerCase()) || c.number.includes(query));
+
+      filtered.forEach(contact => {
+        const div = document.createElement('div');
+        div.className = 'call-card';
+        div.innerHTML = `
+          <div class="call-card-left" onclick="initiateCall('${contact.number}', '${contact.name}')" style="cursor: pointer; flex: 1;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: #1a1a28; border: 1px solid var(--border-glass); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px;">
+              ${contact.initials}
+            </div>
+            <div class="call-info">
+              <h4>${contact.name}</h4>
+              <p>${contact.number} ${contact.company ? '• ' + contact.company : ''}</p>
+            </div>
+          </div>
+          <button class="dial-small-btn" onclick="initiateCall('${contact.number}', '${contact.name}')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.047 15.047 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.399 11.399 0 018.57 3.99c.07-.55-.38-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.61c0-.55-.45-1-1-1z"/></svg>
+          </button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function filterContacts(val) {
+      renderContacts(val);
+    }
+
+    function promptAddContact() {
+      const name = prompt("Podaj imię i nazwisko kontaktu:", "");
+      if (!name) return;
+      const num = prompt("Podaj numer telefonu:", currentDigits ? formatNumber(currentDigits) : "+48 ");
+      if (!num) return;
+
+      contacts.push({
+        name: name,
+        number: num,
+        company: "Nowy kontakt",
+        isFav: true,
+        initials: name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase()
+      });
+      currentDigits = "";
+      renderKeypad();
+      renderContacts();
+      alert(`Dodano kontakt ${name}!`);
+    }
+
+    // --- VOICEMAIL RENDERING ---
+    function renderVoicemail() {
+      const container = document.getElementById('voicemailList');
+      container.innerHTML = "";
+      voicemails.forEach((vm, idx) => {
+        const div = document.createElement('div');
+        div.className = 'voicemail-card';
+        div.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h4 style="font-size: 16px; font-weight: 600;">${vm.name}</h4>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${vm.number} • ${vm.time}</p>
+            </div>
+            <span style="font-size: 13px; font-family: monospace; color: var(--text-secondary);">${vm.duration}</span>
+          </div>
+
+          <div class="vm-transcript">
+            <div class="vm-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z"/></svg>
+              TRANSKRYPCJA AI (WHISPER HD)
+            </div>
+            "${vm.transcript}"
+          </div>
+
+          <div class="audio-player">
+            <button class="audio-play-btn" onclick="alert('Odtwarzanie nagrania wiadomości...')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+            <div class="audio-bar"><div class="audio-fill"></div></div>
+            <button class="dial-small-btn" onclick="initiateCall('${vm.number}', '${vm.name}')" title="Oddzwoń">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.047 15.047 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1A11.399 11.399 0 018.57 3.99c.07-.55-.38-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.61c0-.55-.45-1-1-1z"/></svg>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    // --- SETTINGS SHEET ---
+    function openSettings() {
+      document.getElementById('settingsModal').classList.add('active');
+    }
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('active');
+    }
+
+    // Initial boot
+    renderKeypad();
+    renderRecents();
+    renderContacts();
+    renderVoicemail();
+  </script>
+</body>
+</html>
