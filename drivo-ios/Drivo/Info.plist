@@ -25,7 +25,11 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>Drivo potrzebuje Twojej lokalizacji, aby wyszukac pobliskich kierowcow.</string>
+    <string>Drivo potrzebuje Twojej lokalizacji, aby pokazać Cię na mapie i znaleźć najbliższych kierowców.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>Drivo potrzebuje Twojej lokalizacji, aby śledzić trasę przejazdu w czasie rzeczywistym.</string>
+    <key>NSLocationUsageDescription</key>
+    <string>Drivo korzysta z lokalizacji GPS, aby określić dokładny punkt odbioru.</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

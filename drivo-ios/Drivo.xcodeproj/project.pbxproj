@@ -18,6 +18,8 @@
 		AA000001000000010000009 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB000001000000010000009 /* ProfileView.swift */; };
 		AA00000100000001000000A /* BottomNavView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000100000001000000A /* BottomNavView.swift */; };
 		AA00000100000001000000B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AB00000100000001000000B /* Assets.xcassets */; };
+		AA00000100000001000000C /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000100000001000000E /* LocationManager.swift */; };
+		AA00000100000001000000D /* HapticsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB00000100000001000000F /* HapticsManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +36,8 @@
 		AB00000100000001000000B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB00000100000001000000C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AB00000100000001000000D /* Drivo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Drivo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB00000100000001000000E /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		AB00000100000001000000F /* HapticsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticsManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,10 +57,20 @@
 				AB000001000000010000001 /* DrivoApp.swift */,
 				AB000001000000010000002 /* ContentView.swift */,
 				AD000001000000010000003 /* Views */,
+				AD000001000000010000005 /* Managers */,
 				AB00000100000001000000B /* Assets.xcassets */,
 				AB00000100000001000000C /* Info.plist */,
 			);
 			path = Drivo;
+			sourceTree = "<group>";
+		};
+		AD000001000000010000005 /* Managers */ = {
+			isa = PBXGroup;
+			children = (
+				AB00000100000001000000E /* LocationManager.swift */,
+				AB00000100000001000000F /* HapticsManager.swift */,
+			);
+			path = Managers;
 			sourceTree = "<group>";
 		};
 		AD000001000000010000002 /* Products */ = {
@@ -170,6 +184,8 @@
 				AA000001000000010000008 /* HistoryView.swift in Sources */,
 				AA000001000000010000009 /* ProfileView.swift in Sources */,
 				AA00000100000001000000A /* BottomNavView.swift in Sources */,
+				AA00000100000001000000C /* LocationManager.swift in Sources */,
+				AA00000100000001000000D /* HapticsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
