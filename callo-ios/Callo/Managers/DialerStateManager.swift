@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 // MARK: - Call Status Enum
 public enum CallStateStatus: String {
@@ -54,6 +55,9 @@ public final class DialerStateManager: ObservableObject {
     @Published public var contacts: [Contact] = Contact.samples
     @Published public var voicemails: [VoicemailItem] = VoicemailItem.samples
     
+    // Ustawienie: czy uruchamiać rzeczywiste połączenie GSM przez system iOS
+    @AppStorage("realGSMCalling") public var realGSMCalling: Bool = true
+    
     // In-Call Soundwave Manager
     public let soundwave = SoundwaveManager()
     
@@ -68,7 +72,7 @@ public final class DialerStateManager: ObservableObject {
     // MARK: - Keypad Operations
     public func appendDigit(_ digit: String) {
         HapticsManager.shared.keyPress()
-        if rawDigits.count < 15 {
+        if rawDigits.count < 16 {
             rawDigits.append(digit)
         }
     }
@@ -91,7 +95,6 @@ public final class DialerStateManager: ObservableObject {
         
         let digits = rawDigits
         if digits.hasPrefix("+") {
-            // E.g. +48 501 234 567
             var result = ""
             for (idx, char) in digits.enumerated() {
                 if idx == 3 || idx == 6 || idx == 9 || idx == 12 {
@@ -101,7 +104,6 @@ public final class DialerStateManager: ObservableObject {
             }
             return result
         } else {
-            // E.g. 501 234 567
             var result = ""
             for (idx, char) in digits.enumerated() {
                 if idx > 0 && idx % 3 == 0 && idx < 10 {
@@ -113,14 +115,32 @@ public final class DialerStateManager: ObservableObject {
         }
     }
     
+    // MARK: - Rzeczywiste połączenie telefoniczne iOS (Real GSM Dial)
+    public func dialRealGSMNumber(_ numberString: String) {
+        let cleanNumber = numberString.components(separatedBy: CharacterSet(charactersIn: "+0123456789*#").inverted).joined()
+        guard !cleanNumber.isEmpty else { return }
+        
+        // Wywołanie systemowego wybierania numeru iOS (telprompt:// lub tel://)
+        if let url = URL(string: "telprompt://\(cleanNumber)"), UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        } else if let url = URL(string: "tel://\(cleanNumber)"), UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+    
     // MARK: - Call Flow Management
     public func startCall(number: String? = nil, contactName: String? = nil) {
-        let targetNumber = number ?? (rawDigits.isEmpty ? "Nieznany numer" : formattedDigits)
+        let targetNumber = number ?? (rawDigits.isEmpty ? "+48 501 234 567" : formattedDigits)
         guard !targetNumber.isEmpty else { return }
         
         HapticsManager.shared.callStart()
         
-        // Lookup contact name if not passed
+        // Wykonanie PRAWDZIWEGO połączenia telefonicznego przez sieć GSM na iPhone
+        if realGSMCalling {
+            dialRealGSMNumber(targetNumber)
+        }
+        
+        // Znalezienie nazwy kontaktu
         var matchedName = contactName
         if matchedName == nil {
             let cleanTarget = targetNumber.replacingOccurrences(of: " ", with: "")
@@ -129,7 +149,7 @@ public final class DialerStateManager: ObservableObject {
             }
         }
         
-        // Initialize call session
+        // Inicjalizacja sesji połączenia
         let session = ActiveCallSession(
             contactName: matchedName,
             phoneNumber: targetNumber,
@@ -139,9 +159,20 @@ public final class DialerStateManager: ObservableObject {
         self.activeCall = session
         self.isCallScreenPresented = true
         
-        // Symulacja sygnału łączenia i odebrania połączenia
+        // Zapis rekordu do historii
+        let record = CallRecord(
+            contactName: session.contactName,
+            phoneNumber: session.phoneNumber,
+            direction: .outgoing,
+            date: Date(),
+            durationSeconds: 0,
+            isEncrypted: true
+        )
+        recents.insert(record, at: 0)
+        
+        // Symulacja aktywacji sesji
         connectionTimer?.cancel()
-        connectionTimer = Timer.publish(every: 1.2, on: .main, in: .common)
+        connectionTimer = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .first()
             .sink { [weak self] _ in
@@ -160,22 +191,8 @@ public final class DialerStateManager: ObservableObject {
         connectionTimer?.cancel()
         connectionTimer = nil
         
-        if let current = activeCall {
-            // Zapis do historii ostatnich połączeń
-            let record = CallRecord(
-                contactName: current.contactName,
-                phoneNumber: current.phoneNumber,
-                direction: .outgoing,
-                date: Date(),
-                durationSeconds: current.durationSeconds,
-                isEncrypted: current.isEncrypted
-            )
-            recents.insert(record, at: 0)
-        }
-        
         activeCall?.status = .ended
         
-        // Zamknięcie ekranu z lekkim opóźnieniem dla płynności
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 self?.isCallScreenPresented = false
@@ -267,20 +284,6 @@ public final class DialerStateManager: ObservableObject {
                 direction: .outgoing,
                 date: Date().addingTimeInterval(-3600 * 5),
                 durationSeconds: 112
-            ),
-            CallRecord(
-                contactName: "Karolina Dąbrowska",
-                phoneNumber: "+48 793 456 789",
-                direction: .missed,
-                date: Date().addingTimeInterval(-3600 * 22),
-                durationSeconds: 0
-            ),
-            CallRecord(
-                contactName: "Kurier DHL",
-                phoneNumber: "+48 22 555 44 33",
-                direction: .incoming,
-                date: Date().addingTimeInterval(-3600 * 48),
-                durationSeconds: 45
             )
         ]
     }

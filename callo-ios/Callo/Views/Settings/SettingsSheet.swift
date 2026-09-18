@@ -3,6 +3,7 @@ import SwiftUI
 public struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     
+    @AppStorage("realGSMCalling") private var realGSMCalling: Bool = true
     @AppStorage("silenceUnknownCallers") private var silenceUnknown: Bool = true
     @AppStorage("hdVoiceEnabled") private var hdVoice: Bool = true
     @AppStorage("hapticFeedback") private var hapticFeedback: Bool = true
@@ -26,6 +27,20 @@ public struct SettingsSheet: View {
                             sectionHeader("POŁĄCZENIA I BEZPIECZEŃSTWO")
                             
                             VStack(spacing: 14) {
+                                Toggle(isOn: $realGSMCalling) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Rzeczywiste połączenia GSM")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(AppTheme.textPrimary)
+                                        Text("Wybiera prawdziwy numer przez sieć komórkową iPhone'a")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(AppTheme.callGreen)
+                                    }
+                                }
+                                .tint(AppTheme.callGreen)
+                                
+                                Divider().background(Color.white.opacity(0.08))
+                                
                                 Toggle(isOn: $silenceUnknown) {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("Wyciszaj nieznane numery")
