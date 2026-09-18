@@ -1,0 +1,67 @@
+name: Build Drivo iOS IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build IPA (Sideloadly Ready)
+    runs-on: macos-14
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode environment
+        run: |
+          if [ -d "/Applications/Xcode_15.4.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_15.4.app
+          elif [ -d "/Applications/Xcode_16.0.app" ]; then
+            sudo xcode-select -s /Applications/Xcode_16.0.app
+          fi
+          xcodebuild -version
+
+      - name: Find Xcode Project
+        id: find_proj
+        run: |
+          PROJ=$(find . -name "*.xcodeproj" | head -n 1)
+          echo "Found project at: $PROJ"
+          echo "proj_path=$PROJ" >> $GITHUB_OUTPUT
+
+      - name: Build Archive (Unsigned)
+        run: |
+          set -e
+          xcodebuild archive \
+            -project "${{ steps.find_proj.outputs.proj_path }}" \
+            -scheme Drivo \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "${{ github.workspace }}/build/Drivo.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PRODUCT_BUNDLE_IDENTIFIER="com.drivo.app"
+
+      - name: Package IPA
+        run: |
+          set -e
+          ARCHIVE="${{ github.workspace }}/build/Drivo.xcarchive"
+          mkdir -p Payload
+          cp -r "$ARCHIVE/Products/Applications/Drivo.app" Payload/
+          zip -r -9 Drivo.ipa Payload/
+          ls -lh Drivo.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Drivo-ipa
+          path: Drivo.ipa
+          retention-days: 14
+          if-no-files-found: error
