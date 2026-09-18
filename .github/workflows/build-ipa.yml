@@ -1,4 +1,4 @@
-name: Build Drivo iOS IPA
+name: Build iOS IPA (Sideloadly Ready)
 
 on:
   push:
@@ -23,45 +23,69 @@ jobs:
             sudo xcode-select -s /Applications/Xcode_15.4.app
           elif [ -d "/Applications/Xcode_16.0.app" ]; then
             sudo xcode-select -s /Applications/Xcode_16.0.app
+          else
+            sudo xcode-select -s /Applications/Xcode.app
           fi
           xcodebuild -version
 
-      - name: Find Xcode Project
-        id: find_proj
-        run: |
-          PROJ=$(find . -name "*.xcodeproj" | head -n 1)
-          echo "Found project at: $PROJ"
-          echo "proj_path=$PROJ" >> $GITHUB_OUTPUT
-
-      - name: Build Archive (Unsigned)
+      - name: Build All Projects & Generate IPAs
         run: |
           set -e
-          xcodebuild archive \
-            -project "${{ steps.find_proj.outputs.proj_path }}" \
-            -scheme Drivo \
-            -configuration Release \
-            -destination "generic/platform=iOS" \
-            -archivePath "${{ github.workspace }}/build/Drivo.xcarchive" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            DEVELOPMENT_TEAM="" \
-            PRODUCT_BUNDLE_IDENTIFIER="com.drivo.app"
+          mkdir -p ipa_output
 
-      - name: Package IPA
-        run: |
-          set -e
-          ARCHIVE="${{ github.workspace }}/build/Drivo.xcarchive"
-          mkdir -p Payload
-          cp -r "$ARCHIVE/Products/Applications/Drivo.app" Payload/
-          zip -r -9 Drivo.ipa Payload/
-          ls -lh Drivo.ipa
+          PROJECTS=$(find . -name "*.xcodeproj" -not -path "*/build/*")
+          echo "Znalezione projekty:"
+          echo "$PROJECTS"
 
-      - name: Upload IPA Artifact
+          for PROJ in $PROJECTS; do
+            PROJ_NAME=$(basename "$PROJ" .xcodeproj)
+            echo "=========================================================="
+            echo "BUDOWANIE: $PROJ_NAME ($PROJ)"
+            echo "=========================================================="
+
+            SCHEME=$(xcodebuild -list -project "$PROJ" | awk '/Schemes:/{flag=1;next}/^$/{flag=0}flag' | tr -d ' ' | head -n 1)
+            if [ -z "$SCHEME" ]; then
+              SCHEME=$(xcodebuild -list -project "$PROJ" | awk '/Targets:/{flag=1;next}/^$/{flag=0}flag' | tr -d ' ' | head -n 1)
+            fi
+            echo "Wykryty schemat: $SCHEME"
+
+            BUILD_DIR="$(pwd)/build_dir_${PROJ_NAME}"
+            mkdir -p "$BUILD_DIR"
+
+            xcodebuild build \
+              -project "$PROJ" \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -destination "generic/platform=iOS" \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              AD_HOC_CODE_SIGNING_ALLOWED=YES \
+              SYMROOT="$BUILD_DIR" \
+              COMPILER_INDEX_STORE_ENABLE=NO
+
+            APP_PATH=$(find "$BUILD_DIR" -name "*.app" -type d | head -n 1)
+            if [ -n "$APP_PATH" ]; then
+              WORK_PAYLOAD="$(pwd)/work_${PROJ_NAME}"
+              mkdir -p "$WORK_PAYLOAD/Payload"
+              cp -r "$APP_PATH" "$WORK_PAYLOAD/Payload/"
+              
+              cd "$WORK_PAYLOAD"
+              zip -qr "${PROJ_NAME}.ipa" Payload
+              mv "${PROJ_NAME}.ipa" "$(pwd)/../ipa_output/"
+              cd ..
+              echo "Gotowe: ipa_output/${PROJ_NAME}.ipa"
+            else
+              echo "BŁĄD: Nie znaleziono .app dla $PROJ"
+              exit 1
+            fi
+          done
+
+      - name: Upload IPA Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Drivo-ipa
-          path: Drivo.ipa
+          name: Sideloadly-IPA-Packages
+          path: ipa_output/*.ipa
           retention-days: 14
           if-no-files-found: error
