@@ -1,0 +1,40 @@
+name: SSHMobile
+options:
+  bundleIdPrefix: com.marekfx77
+  xcodeVersion: "16.0"
+packages:
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel.git
+    from: "0.8.0"
+settings:
+  base:
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    SWIFT_VERSION: "5.9"
+targets:
+  SSHMobile:
+    type: application
+    platform: iOS
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - SSHMobile.xcodeproj
+          - Design
+    dependencies:
+      - package: Citadel
+        product: Citadel
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.marekfx77.sshmobile
+        PRODUCT_NAME: SSHMobile
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: SSH Mobile
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSFaceIDUsageDescription: SSH Mobile używa Face ID do bezpiecznego odblokowania danych logowania do serwerów SSH.
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: SSH Mobile łączy się z Twoimi serwerami SSH w sieci lokalnej lub przez internet.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: 1
