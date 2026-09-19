@@ -1,8 +1,8 @@
 import Foundation
 import Citadel
-import NIOSSH
 import NIOCore
-import NIOPosix
+import CryptoKit
+
 
 actor SSHClient {
     private var client: Citadel.SSHClient?
@@ -41,12 +41,21 @@ actor SSHClient {
             throw SSHClientError.keyImportFailed
         }
         do {
-            // Try parsing as Ed25519 OpenSSH private key (most common modern format)
-            let privateKey = try NIOSSHPrivateKey(ed25519Key: pem)
+            // Strip header/footer lines and whitespace
+            let lines = pem.components(separatedBy: .newlines)
+                .filter { !$0.hasPrefix("-----") && !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            guard let b64Data = Data(base64Encoded: lines.joined()),
+                  b64Data.count >= 32 else {
+                throw SSHClientError.keyImportFailed
+            }
+            // Use last 32 bytes as Ed25519 private key seed
+            let seed = b64Data.suffix(32)
+            let ed25519Key = try Curve25519.Signing.PrivateKey(rawRepresentation: seed)
+            
             client = try await Citadel.SSHClient.connect(
                 host: host,
                 port: server.port,
-                authenticationMethod: .privateKey(username: server.username, privateKey: privateKey),
+                authenticationMethod: .ed25519(username: server.username, privateKey: ed25519Key),
                 hostKeyValidator: .acceptAnything(),
                 reconnect: .never
             )
@@ -56,7 +65,6 @@ actor SSHClient {
             throw SSHClientError.connectionFailed(error.localizedDescription)
         }
     }
-
 
     var isConnected: Bool { client != nil }
 
@@ -78,25 +86,25 @@ actor SSHClient {
     // MARK: - Resource Stats
 
     func fetchResourceStats() async throws -> ServerResourceStats {
-        // Run multiple commands to get stats
-        async let cpuResult = try executeCommand("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d'%' -f1 | tr -d ' ' 2>/dev/null || echo '0'")
-        async let memResult = try executeCommand("free -m 2>/dev/null | awk 'NR==2{print $2\" \"$3}' || echo '0 0'")
-        async let diskResult = try executeCommand("df -BG / 2>/dev/null | awk 'NR==2{gsub(/G/,\"\",$2); gsub(/G/,\"\",$3); print $2\" \"$3}' || echo '0 0'")
-        async let uptimeResult = try executeCommand("cat /proc/uptime 2>/dev/null | awk '{print int($1)}' || echo '0'")
+        async let cpuStr = try executeCommand("top -bn1 2>/dev/null | grep -i 'cpu' | head -1 | grep -oP '[0-9.]+(?=.*id)' || echo '0'")
+        async let memStr = try executeCommand("free -m 2>/dev/null | awk 'NR==2{print $2\" \"$3}' || echo '0 0'")
+        async let diskStr = try executeCommand("df -BG / 2>/dev/null | awk 'NR==2{gsub(/G/,\"\",$2); gsub(/G/,\"\",$3); print $2\" \"$3}' || echo '0 0'")
+        async let uptimeStr = try executeCommand("cat /proc/uptime 2>/dev/null | awk '{print int($1)}' || echo '0'")
 
-        let (cpuStr, memStr, diskStr, uptimeStr) = try await (cpuResult, memResult, diskResult, uptimeResult)
+        let (cpuRaw, memRaw, diskRaw, uptimeRaw) = try await (cpuStr, memStr, diskStr, uptimeStr)
 
-        let cpu = Double(cpuStr.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
-        let memParts = memStr.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
+        let idlePercent = Double(cpuRaw.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let cpu = max(0, min(100, 100 - idlePercent))
+        let memParts = memRaw.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
         let memTotal = Int(memParts.first ?? "0") ?? 0
         let memUsed = Int(memParts.dropFirst().first ?? "0") ?? 0
-        let diskParts = diskStr.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
+        let diskParts = diskRaw.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: " ")
         let diskTotal = Double(diskParts.first ?? "0") ?? 0
         let diskUsed = Double(diskParts.dropFirst().first ?? "0") ?? 0
-        let uptime = Int(uptimeStr.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+        let uptime = Int(uptimeRaw.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 
         return ServerResourceStats(
-            cpuPercent: min(max(cpu, 0), 100),
+            cpuPercent: cpu,
             memUsedMiB: memUsed,
             memTotalMiB: memTotal,
             diskUsedGB: diskUsed,
@@ -136,24 +144,28 @@ actor SFTPSession {
 
     func listDirectory(atPath path: String) async throws -> [SFTPItem] {
         do {
-            let components = try await sftp.listDirectory(atPath: path)
+            let nameMessages = try await sftp.listDirectory(atPath: path)
+            let components = nameMessages.flatMap(\.components)
             return components.compactMap { component -> SFTPItem? in
-                guard component.filename != "." && component.filename != ".." else { return nil }
+                let name = component.filename
+                guard name != "." && name != ".." else { return nil }
                 let attrs = component.attributes
-                let isDir = attrs.isDirectory
-                let isLink = attrs.isSymlink
+                let rawPerm = attrs.permissions ?? 0
+                let typeOctal = rawPerm >> 12
+                let isDir = typeOctal == 0o4
+                let isLink = typeOctal == 0o12
                 let size = Int64(attrs.size ?? 0)
-                let modifiedAt: Date? = attrs.modifyTime.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+                let modifiedAt = attrs.accessModificationTime?.modificationTime
                 let perm: String
-                if let permissions = attrs.permissions {
-                    perm = String(permissions.rawValue, radix: 8)
+                if attrs.permissions != nil {
+                    perm = String(rawPerm & 0o7777, radix: 8)
                 } else {
                     perm = isDir ? "755" : "644"
                 }
-                let fullPath = path == "/" ? "/\(component.filename)" : "\(path)/\(component.filename)"
+                let fullPath = path == "/" ? "/\(name)" : "\(path)/\(name)"
                 return SFTPItem(
                     path: fullPath,
-                    name: component.filename,
+                    name: name,
                     isDirectory: isDir,
                     isSymlink: isLink,
                     size: size,
@@ -171,10 +183,11 @@ actor SFTPSession {
 
     func readFile(atPath path: String) async throws -> Data {
         do {
-            var file = try await sftp.openFile(filePath: path, flags: .read)
-            let buffer = try await file.readAll()
+            let file = try await sftp.openFile(filePath: path, flags: [.read])
+            var buffer = try await file.readAll()
             try await file.close()
-            return Data(buffer.readableBytesView)
+            let bytes = buffer.readBytes(length: buffer.readableBytes) ?? []
+            return Data(bytes)
         } catch {
             throw SSHClientError.sftpFailed(error.localizedDescription)
         }
@@ -182,8 +195,8 @@ actor SFTPSession {
 
     func writeFile(data: Data, atPath path: String) async throws {
         do {
-            var buffer = ByteBuffer(bytes: data)
-            var file = try await sftp.openFile(filePath: path, flags: [.write, .create, .truncate])
+            let file = try await sftp.openFile(filePath: path, flags: [.write, .create, .truncate])
+            let buffer = ByteBuffer(bytes: data)
             try await file.write(buffer)
             try await file.close()
         } catch {
@@ -199,17 +212,13 @@ actor SFTPSession {
         }
     }
 
-    func remove(atPath path: String) async throws {
+    func remove(atPath path: String, isDirectory: Bool) async throws {
         do {
-            try await sftp.removeFile(atPath: path)
-        } catch {
-            throw SSHClientError.sftpFailed(error.localizedDescription)
-        }
-    }
-
-    func removeDirectory(atPath path: String) async throws {
-        do {
-            try await sftp.removeDirectory(atPath: path)
+            if isDirectory {
+                try await sftp.rmdir(at: path)
+            } else {
+                try await sftp.remove(at: path)
+            }
         } catch {
             throw SSHClientError.sftpFailed(error.localizedDescription)
         }

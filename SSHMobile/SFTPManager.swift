@@ -109,11 +109,7 @@ final class SFTPManager: ObservableObject {
     func deleteItem(_ item: SFTPItem) async {
         guard let session = sftpSession else { errorMessage = "Brak połączenia SFTP."; return }
         do {
-            if item.isDirectory {
-                try await session.removeDirectory(atPath: item.path)
-            } else {
-                try await session.remove(atPath: item.path)
-            }
+            try await session.remove(atPath: item.path, isDirectory: item.isDirectory)
             items.removeAll { $0.path == item.path }
         } catch {
             errorMessage = error.localizedDescription

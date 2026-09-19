@@ -1165,7 +1165,7 @@ struct ServersView: View {
     @State private var showingAddServer = false
     @State private var showingAddGroup = false
     @State private var serverToEdit: SSHServer?
-    
+
     var body: some View {
         NavigationStack {
             List {
@@ -1174,63 +1174,8 @@ struct ServersView: View {
                         .foregroundColor(.secondary)
                         .listRowBackground(Color.clear)
                 } else {
-                    ForEach(appSession.groups) { group in
-                        DisclosureGroup(
-                            isExpanded: Binding(
-                                get: { group.isExpanded },
-                                set: { _ in appSession.toggleGroupExpanded(groupId: group.id) }
-                            )
-                        ) {
-                            ForEach(appSession.servers(inGroup: group.id)) { server in
-                                NavigationLink(destination: ServerDetailView(server: server, lang: lang)) {
-                                    ServerRow(server: server)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        appSession.deleteServer(server.id)
-                                    } label: {
-                                        Label(lang.delete, systemImage: "trash")
-                                    }
-                                }
-                                .contextMenu {
-                                    Button {
-                                        serverToEdit = server
-                                    } label: {
-                                        Label(lang.edit, systemImage: "pencil")
-                                    }
-                                }
-                            }
-                        } label: {
-                            Text(group.name)
-                                .font(.headline)
-                                .foregroundColor(.primary)
-                        }
-                    }
-                    
-                    let ungrouped = appSession.ungroupedServers()
-                    if !ungrouped.isEmpty {
-                        Section {
-                            ForEach(ungrouped) { server in
-                                NavigationLink(destination: ServerDetailView(server: server, lang: lang)) {
-                                    ServerRow(server: server)
-                                }
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        appSession.deleteServer(server.id)
-                                    } label: {
-                                        Label(lang.delete, systemImage: "trash")
-                                    }
-                                }
-                                .contextMenu {
-                                    Button {
-                                        serverToEdit = server
-                                    } label: {
-                                        Label(lang.edit, systemImage: "pencil")
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    groupedContent
+                    ungroupedContent
                 }
             }
             .navigationTitle(lang.tabServers)
@@ -1259,7 +1204,64 @@ struct ServersView: View {
             }
         }
     }
+
+    @ViewBuilder
+    private var groupedContent: some View {
+        ForEach(appSession.groups) { group in
+            DisclosureGroup(
+                isExpanded: Binding(
+                    get: { group.isExpanded },
+                    set: { _ in appSession.toggleGroupExpanded(group) }
+                )
+            ) {
+                ForEach(appSession.servers(inGroup: group.id)) { server in
+                    serverRow(server)
+                }
+            } label: {
+                HStack {
+                    Circle()
+                        .fill(Color(hex: group.colorHex) ?? .blue)
+                        .frame(width: 10, height: 10)
+                    Text(group.name).font(.headline)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var ungroupedContent: some View {
+        let ungrouped = appSession.ungroupedServers()
+        if !ungrouped.isEmpty {
+            Section(header: Text("Inne")) {
+                ForEach(ungrouped) { server in
+                    serverRow(server)
+                }
+            }
+        }
+    }
+
+    private func serverRow(_ server: SSHServer) -> some View {
+        NavigationLink(destination: ServerDetailView(server: server, lang: lang)) {
+            ServerRow(server: server)
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                appSession.deleteServer(server)
+            } label: {
+                Label(lang.delete, systemImage: "trash")
+            }
+        }
+        .contextMenu {
+            Button { serverToEdit = server } label: {
+                Label(lang.edit, systemImage: "pencil")
+            }
+            Button(role: .destructive) { appSession.deleteServer(server) } label: {
+                Label(lang.delete, systemImage: "trash")
+            }
+        }
+    }
 }
+
 
 // MARK: - Section 6: ServerRow
 struct ServerRow: View {
@@ -1269,7 +1271,7 @@ struct ServerRow: View {
     var body: some View {
         HStack {
             Image(systemName: server.sfxIconName)
-                .foregroundColor(Color(server.colorHex ?? "007AFF"))
+                .foregroundColor(Color(hex: server.colorHex) ?? .blue)
                 .font(.title2)
                 .frame(width: 30)
             
@@ -1323,8 +1325,8 @@ struct ServerDetailView: View {
                     DetailRow(title: lang.port, value: "\(server.port)")
                     DetailRow(title: lang.username, value: server.username)
                     DetailRow(title: lang.authMethod, value: server.authMethod == .password ? lang.password : lang.sshKeys)
-                    if let notes = server.notes, !notes.isEmpty {
-                        DetailRow(title: lang.notes, value: notes)
+                    if !server.notes.isEmpty {
+                        DetailRow(title: lang.notes, value: server.notes)
                     }
                 }
                 .padding()
@@ -1375,7 +1377,7 @@ struct ServerDetailView: View {
                         Label(lang.edit, systemImage: "pencil")
                     }
                     Button(role: .destructive, action: {
-                        appSession.deleteServer(server.id)
+                        appSession.deleteServer(server)
                     }) {
                         Label(lang.delete, systemImage: "trash")
                     }
@@ -1524,7 +1526,7 @@ struct AddEditServerView: View {
                     }
                     Picker("Color", selection: $colorHex) {
                         ForEach(colors, id: \.self) { color in
-                            Circle().fill(Color(hex: color)).tag(color)
+                            Circle().fill(Color(hex: color) ?? .blue).tag(color)
                         }
                     }
                 }
@@ -1552,8 +1554,8 @@ struct AddEditServerView: View {
                     username = server.username
                     authMethod = server.authMethod
                     iconName = server.sfxIconName
-                    colorHex = server.colorHex ?? "007AFF"
-                    notes = server.notes ?? ""
+                    colorHex = server.colorHex
+                    notes = server.notes
                 }
             }
         }
@@ -1570,8 +1572,11 @@ struct AddEditServerView: View {
             groupId: selectedGroupId,
             sfxIconName: iconName,
             colorHex: colorHex,
-            notes: notes.isEmpty ? nil : notes
+            notes: notes
         )
+        if authMethod == .password && !password.isEmpty {
+            SSHKeychain.savePassword(password, for: server.id)
+        }
         if serverToEdit != nil {
             appSession.updateServer(server)
         } else {
@@ -1579,6 +1584,7 @@ struct AddEditServerView: View {
         }
         dismiss()
     }
+
 }
 
 // MARK: - Section 10: AddGroupView
@@ -1598,7 +1604,7 @@ struct AddGroupView: View {
                     TextField("Group Name", text: $name)
                     Picker("Color", selection: $colorHex) {
                         ForEach(colors, id: \.self) { color in
-                            Circle().fill(Color(hex: color)).tag(color)
+                            Circle().fill(Color(hex: color) ?? .blue).tag(color)
                         }
                     }
                 }
@@ -1610,7 +1616,7 @@ struct AddGroupView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(lang.save) {
-                        let group = SSHServerGroup(id: UUID(), name: name, isExpanded: true, colorHex: colorHex)
+                        let group = SSHServerGroup(name: name, colorHex: colorHex)
                         appSession.addGroup(group)
                         dismiss()
                     }
@@ -1625,61 +1631,81 @@ struct AddGroupView: View {
 struct TerminalTabsView: View {
     @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
-    
+
     var body: some View {
         NavigationStack {
-            VStack {
+            VStack(spacing: 0) {
                 if appSession.activeSessions.isEmpty {
-                    VStack {
-                        Text(lang.noActiveSessions)
-                            .foregroundColor(.secondary)
-                            .padding()
-                    }
+                    emptyState
                 } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack {
-                            ForEach(appSession.activeSessions) { session in
-                                Button(action: {
-                                    appSession.selectedSessionId = session.id
-                                }) {
-                                    HStack {
-                                        Text(session.server.name)
-                                        Button(action: {
-                                            appSession.closeSession(session.id)
-                                        }) {
-                                            Image(systemName: "xmark")
-                                        }
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(appSession.selectedSessionId == session.id ? Color.blue.opacity(0.2) : Color.clear)
-                                    .cornerRadius(8)
-                                }
-                            }
-                        }
-                        .padding(.horizontal)
-                    }
-                    .padding(.vertical, 8)
-                    .background(Color(UIColor.systemBackground))
-                    
-                    if let selectedSession = appSession.activeSessions.first(where: { $0.id == appSession.selectedSessionId }) {
-                        TerminalSessionView(lang: lang, server: selectedSession.server)
-                    } else {
-                        Spacer()
-                    }
+                    tabStrip
+                    terminalArea
                 }
             }
             .navigationTitle(lang.tabTerminal)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        // disconnect all logic
-                    }) {
-                        Label(lang.disconnect, systemImage: "xmark.circle")
-                    }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            Image(systemName: "terminal")
+                .font(.system(size: 48))
+                .foregroundColor(.secondary)
+            Text(lang.noActiveSessions)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .padding()
+    }
+
+    private var tabStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 4) {
+                ForEach(appSession.activeSessions) { session in
+                    sessionTab(for: session)
                 }
             }
+            .padding(.horizontal)
+        }
+        .padding(.vertical, 6)
+        .background(Color(UIColor.secondarySystemBackground))
+    }
+
+    private func sessionTab(for session: SSHActiveSession) -> some View {
+        let isSelected = appSession.selectedSessionId == session.id
+        return Button(action: { appSession.selectedSessionId = session.id }) {
+            HStack(spacing: 6) {
+                Text(session.server.name)
+                    .font(.subheadline)
+                Button(action: { appSession.closeSession(session) }) {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(isSelected ? Color.accentColor.opacity(0.15) : Color.clear)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var terminalArea: some View {
+        if let session = appSession.activeSessions.first(where: { $0.id == appSession.selectedSessionId }) {
+            TerminalSessionView(lang: lang, server: session.server)
+        } else if let first = appSession.activeSessions.first {
+            TerminalSessionView(lang: lang, server: first.server)
+        } else {
+            Spacer()
         }
     }
 }
@@ -1688,8 +1714,14 @@ struct TerminalTabsView: View {
 struct TerminalSessionView: View {
     let lang: AppLanguage
     let server: SSHServer
-    @StateObject private var terminal = SSHTerminal()
+    @StateObject private var terminal: SSHTerminal
     @State private var commandInput = ""
+    
+    init(lang: AppLanguage, server: SSHServer) {
+        self.lang = lang
+        self.server = server
+        self._terminal = StateObject(wrappedValue: SSHTerminal(server: server))
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -1718,7 +1750,7 @@ struct TerminalSessionView: View {
                     }
                     .padding()
                 }
-                .onChange(of: terminal.lines.count) { _ in
+                .onChange(of: terminal.lines.count) {
                     if let last = terminal.lines.last {
                         withAnimation {
                             proxy.scrollTo(last.id, anchor: .bottom)
@@ -1726,18 +1758,18 @@ struct TerminalSessionView: View {
                     }
                 }
             }
-            .background(Color.black)
+            .background(currentScheme.backgroundColor)
             
             HStack {
                 TextField(lang.sendCommand, text: $commandInput)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
+                    .onSubmit {
+                        sendCommand()
+                    }
                 
-                Button(action: {
-                    terminal.sendCommand(commandInput)
-                    commandInput = ""
-                }) {
+                Button(action: sendCommand) {
                     Image(systemName: "paperplane.fill")
                 }
                 .disabled(commandInput.isEmpty || !terminal.isConnected)
@@ -1747,8 +1779,31 @@ struct TerminalSessionView: View {
         }
         .onAppear {
             if !terminal.isConnected && !terminal.isConnecting {
-                terminal.connect(password: "") // Placeholder, should prompt for password if needed
+                if server.authMethod == .privateKey {
+                    let key = SSHKeychain.allPrivateKeyNames().first ?? "default"
+                    Task {
+                        await terminal.connectWithKey(keyName: key)
+                    }
+                } else if let pwd = SSHKeychain.loadPassword(for: server.id) {
+                    Task {
+                        await terminal.connect(password: pwd)
+                    }
+                }
             }
+        }
+    }
+
+    @AppStorage("terminalColorScheme") private var terminalColorScheme = "standard"
+    private var currentScheme: TerminalColorScheme {
+        TerminalColorScheme(rawValue: terminalColorScheme) ?? .standard
+    }
+
+    private func sendCommand() {
+        let cmd = commandInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cmd.isEmpty else { return }
+        commandInput = ""
+        Task {
+            await terminal.sendCommand(cmd)
         }
     }
 }
@@ -1757,31 +1812,41 @@ struct TerminalSessionView: View {
 struct TerminalLineView: View {
     let line: TerminalLine
     @AppStorage("terminalFontSize") private var fontSize = 12.0
+    @AppStorage("terminalColorScheme") private var terminalColorScheme = "standard"
     
+    private var currentScheme: TerminalColorScheme {
+        TerminalColorScheme(rawValue: terminalColorScheme) ?? .standard
+    }
+
     var body: some View {
-        Text(line.text)
+        Text(line.content)
             .font(.custom("Menlo", size: fontSize))
-            .foregroundColor(line.isError ? .red : (line.isCommand ? .green : .white))
+            .foregroundColor(line.isError ? .red : (line.isCommand ? currentScheme.promptColor : currentScheme.textColor))
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
 
 // MARK: - Section 14: SFTPView
 struct SFTPView: View {
     @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
-    
+
     var body: some View {
         NavigationStack {
-            if appSession.activeSessions.isEmpty {
-                VStack {
+            if let session = appSession.activeSessions.first {
+                SFTPBrowserView(lang: lang, server: session.server)
+            } else {
+                VStack(spacing: 16) {
+                    Image(systemName: "folder.badge.questionmark")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
                     Text(lang.noActiveSessions)
                         .foregroundColor(.secondary)
-                        .padding()
+                        .multilineTextAlignment(.center)
                 }
+                .padding()
                 .navigationTitle(lang.tabFiles)
-            } else {
-                SFTPBrowserView(lang: lang)
             }
         }
     }
@@ -1791,47 +1856,104 @@ struct SFTPView: View {
 struct SFTPBrowserView: View {
     @EnvironmentObject var appSession: SSHAppSession
     let lang: AppLanguage
-    @StateObject private var sftpManager = SFTPManager()
-    
+    @StateObject private var sftpManager: SFTPManager
+    @State private var showingNewFolder = false
+    @State private var newFolderName = ""
+    @State private var selectedItem: SFTPItem?
+
+    init(lang: AppLanguage, server: SSHServer) {
+        self.lang = lang
+        self._sftpManager = StateObject(wrappedValue: SFTPManager(server: server))
+    }
+
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
+            // Breadcrumb bar
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
-                    ForEach(sftpManager.breadcrumbs, id: \.self) { crumb in
-                        Text(crumb)
-                        Image(systemName: "chevron.right")
+                HStack(spacing: 4) {
+                    ForEach(sftpManager.breadcrumbs) { crumb in
+                        Button(crumb.name) {
+                            Task { await sftpManager.navigateTo(path: crumb.path) }
+                        }
+                        .font(.caption)
+                        .buttonStyle(.plain)
+                        .foregroundColor(.accentColor)
+                        if crumb.path != sftpManager.currentPath {
+                            Image(systemName: "chevron.right")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.vertical, 6)
             }
-            
-            List {
-                ForEach(sftpManager.items) { item in
-                    SFTPFileRow(item: item)
-                        .onTapGesture {
-                            if item.isDirectory {
-                                sftpManager.navigateTo(path: item.path)
-                            } else {
-                                // Open file viewer
+            .background(Color(UIColor.secondarySystemBackground))
+
+            if sftpManager.isLoading {
+                ProgressView().padding()
+                Spacer()
+            } else {
+                List {
+                    ForEach(sftpManager.items) { item in
+                        SFTPFileRow(item: item)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if item.isDirectory {
+                                    Task { await sftpManager.navigateTo(path: item.path) }
+                                } else {
+                                    selectedItem = item
+                                }
                             }
-                        }
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    Task { await sftpManager.deleteItem(item) }
+                                } label: {
+                                    Label(lang.delete, systemImage: "trash")
+                                }
+                            }
+                    }
                 }
+                .listStyle(.plain)
             }
         }
-        .navigationTitle(lang.tabFiles)
+        .navigationTitle(sftpManager.currentPath == "/" ? lang.tabFiles : (sftpManager.currentPath as NSString).lastPathComponent)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { sftpManager.refresh() }) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: { showingNewFolder = true }) {
+                    Image(systemName: "folder.badge.plus")
+                }
+                Button(action: { Task { await sftpManager.refresh() } }) {
                     Image(systemName: "arrow.clockwise")
                 }
             }
+            ToolbarItem(placement: .navigationBarLeading) {
+                if sftpManager.currentPath != "/" {
+                    Button(action: { Task { await sftpManager.navigateToParent() } }) {
+                        Image(systemName: "chevron.left")
+                    }
+                }
+            }
+        }
+        .alert(lang.newFolder, isPresented: $showingNewFolder) {
+            TextField(lang.folderName, text: $newFolderName)
+            Button(lang.cancel, role: .cancel) { newFolderName = "" }
+            Button(lang.save) {
+                Task { await sftpManager.createFolder(name: newFolderName); newFolderName = "" }
+            }
+        }
+        .sheet(item: $selectedItem) { item in
+            FileViewerView(item: item, sftpManager: sftpManager, lang: lang)
         }
         .onAppear {
             if !sftpManager.isConnected {
-                sftpManager.connect(password: "") // Placeholder
+                if let password = SSHKeychain.loadPassword(for: sftpManager.server.id) {
+                    Task { await sftpManager.connect(password: password) }
+                }
             }
         }
     }
+
 }
 
 // MARK: - Section 16: SFTPFileRow
@@ -1853,10 +1975,120 @@ struct SFTPFileRow: View {
 }
 
 // MARK: - Section 17: FileViewerView
-// Placeholder for FileViewerView due to brevity
 struct FileViewerView: View {
-    var body: some View { Text("File Viewer") }
+    let item: SFTPItem
+    @ObservedObject var sftpManager: SFTPManager
+    let lang: AppLanguage
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var content: String = ""
+    @State private var isLoading: Bool = true
+    @State private var isSaving: Bool = false
+    @State private var errorMessage: String?
+    @State private var isTextFile: Bool = true
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let error = errorMessage {
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.largeTitle)
+                            .foregroundColor(.orange)
+                        Text(error)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding()
+                } else if !isTextFile {
+                    VStack(spacing: 12) {
+                        Image(systemName: item.iconName)
+                            .font(.system(size: 48))
+                            .foregroundColor(.secondary)
+                        Text(item.name)
+                            .font(.headline)
+                        Text(item.displaySize)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    TextEditor(text: $content)
+                        .font(.system(.body, design: .monospaced))
+                        .padding(4)
+                }
+            }
+            .navigationTitle(item.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(lang.cancel) {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if isTextFile && !isLoading {
+                        Button(action: saveFile) {
+                            if isSaving {
+                                ProgressView()
+                            } else {
+                                Text(lang.save)
+                                    .bold()
+                            }
+                        }
+                        .disabled(isSaving)
+                    }
+                }
+            }
+            .task {
+                await loadFile()
+            }
+        }
+    }
+
+    private func loadFile() async {
+        isLoading = true
+        errorMessage = nil
+        do {
+            let data = try await sftpManager.readFile(item)
+            if let text = String(data: data, encoding: .utf8) {
+                content = text
+                isTextFile = true
+            } else if let text = String(data: data, encoding: .ascii) {
+                content = text
+                isTextFile = true
+            } else {
+                isTextFile = false
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+        isLoading = false
+    }
+
+    private func saveFile() {
+        guard let data = content.data(using: .utf8) else { return }
+        isSaving = true
+        Task {
+            do {
+                try await sftpManager.writeFile(data: data, atPath: item.path)
+                await MainActor.run {
+                    isSaving = false
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
 }
+
 
 // MARK: - Section 18: SnippetsView
 struct SnippetsView: View {
@@ -1875,7 +2107,7 @@ struct SnippetsView: View {
                         SnippetRow(snippet: snippet, lang: lang)
                             .swipeActions {
                                 Button(role: .destructive) {
-                                    appSession.deleteSnippet(snippet.id)
+                                    appSession.deleteSnippet(snippet)
                                 } label: {
                                     Label(lang.delete, systemImage: "trash")
                                 }
@@ -1915,8 +2147,8 @@ struct SnippetRow: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-            if let desc = snippet.description {
-                Text(desc)
+            if !snippet.description.isEmpty {
+                Text(snippet.description)
                     .font(.caption2)
                     .foregroundColor(.gray)
             }
@@ -1950,7 +2182,7 @@ struct AddEditSnippetView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(lang.save) {
-                        let snippet = SSHSnippet(id: UUID(), name: name, command: command, description: description, groupName: nil)
+                        let snippet = SSHSnippet(name: name, command: command, description: description)
                         appSession.addSnippet(snippet)
                         dismiss()
                     }
@@ -1967,7 +2199,8 @@ struct SettingsView: View {
     @AppStorage("appLanguage") private var appLanguage = "system"
     @AppStorage("appearanceMode") private var appearanceMode = "system"
     @AppStorage("terminalFontSize") private var terminalFontSize = 12.0
-    
+    @AppStorage("terminalColorScheme") private var terminalColorScheme = "standard"
+
     var body: some View {
         NavigationStack {
             Form {
@@ -1977,11 +2210,29 @@ struct SettingsView: View {
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
                     }
-                    Slider(value: $terminalFontSize, in: 9...24, step: 1) {
-                        Text(lang.fontSize)
+                    Picker(lang.terminalTheme, selection: $terminalColorScheme) {
+                        ForEach(TerminalColorScheme.allCases) { scheme in
+                            Text(scheme.displayName).tag(scheme.rawValue)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(lang.fontSize): \(Int(terminalFontSize)) pt")
+                        Slider(value: $terminalFontSize, in: 9...24, step: 1)
                     }
                 }
                 
+                Section(header: Text(lang.security)) {
+                    HStack {
+                        Label(SSHKeychain.biometryTypeName, systemImage: "faceid")
+                        Spacer()
+                        Text(SSHKeychain.isBiometryAvailable ? "Dostępne" : "Niedostępne")
+                            .foregroundColor(.secondary)
+                    }
+                    NavigationLink(destination: SSHKeysView(lang: lang)) {
+                        Label(lang.sshKeys, systemImage: "key.fill")
+                    }
+                }
+
                 Section(header: Text(lang.language)) {
                     Picker(lang.language, selection: $appLanguage) {
                         ForEach(AppLanguage.allCases) { language in
@@ -2006,26 +2257,127 @@ struct SettingsView: View {
 
 // MARK: - Section 22: SSHKeysView
 struct SSHKeysView: View {
-    var body: some View { Text("SSH Keys View") }
+    let lang: AppLanguage
+    @State private var keys: [String] = []
+    @State private var showingAddKey = false
+    @State private var newKeyName = ""
+    @State private var newKeyContent = ""
+
+    var body: some View {
+        List {
+            if keys.isEmpty {
+                Text(lang.sshKeys)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(keys, id: \.self) { key in
+                    HStack {
+                        Image(systemName: "key.fill")
+                            .foregroundColor(.accentColor)
+                        Text(key)
+                            .font(.headline)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            SSHKeychain.deletePrivateKey(name: key)
+                            refreshKeys()
+                        } label: {
+                            Label(lang.delete, systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle(lang.sshKeys)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showingAddKey = true }) {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingAddKey) {
+            NavigationStack {
+                Form {
+                    TextField("Nazwa klucza", text: $newKeyName)
+                    TextEditor(text: $newKeyContent)
+                        .frame(height: 150)
+                }
+                .navigationTitle(lang.importKey)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(lang.cancel) {
+                            newKeyName = ""
+                            newKeyContent = ""
+                            showingAddKey = false
+                        }
+                    }
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(lang.save) {
+                            let name = newKeyName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let content = newKeyContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !name.isEmpty && !content.isEmpty {
+                                SSHKeychain.savePrivateKey(content, name: name)
+                                refreshKeys()
+                                newKeyName = ""
+                                newKeyContent = ""
+                                showingAddKey = false
+                            }
+                        }
+                        .disabled(newKeyName.isEmpty || newKeyContent.isEmpty)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            refreshKeys()
+        }
+    }
+
+    private func refreshKeys() {
+        keys = SSHKeychain.allPrivateKeyNames()
+    }
 }
 
 // MARK: - Section 23: ResourceStatsCard
 struct ResourceStatsCard: View {
     let lang: AppLanguage
-    
+    var stats: ServerResourceStats? = nil
+
     var body: some View {
-        VStack {
+        VStack(spacing: 8) {
             HStack {
                 Text(lang.cpu)
-                ProgressView(value: 0.5)
+                Spacer()
+                if let stats {
+                    Text(stats.cpuText).font(.caption).foregroundColor(.secondary)
+                }
+                ProgressView(value: stats != nil ? stats!.cpuPercent / 100.0 : 0.2)
+                    .frame(width: 100)
             }
             HStack {
                 Text(lang.memory)
-                ProgressView(value: 0.6)
+                Spacer()
+                if let stats {
+                    Text(stats.memText).font(.caption).foregroundColor(.secondary)
+                }
+                ProgressView(value: stats != nil ? stats!.memPercent : 0.4)
+                    .frame(width: 100)
             }
             HStack {
                 Text(lang.disk)
-                ProgressView(value: 0.4)
+                Spacer()
+                if let stats {
+                    Text(stats.diskText).font(.caption).foregroundColor(.secondary)
+                }
+                ProgressView(value: stats != nil ? stats!.diskPercent : 0.3)
+                    .frame(width: 100)
+            }
+            if let stats {
+                HStack {
+                    Text("Uptime")
+                    Spacer()
+                    Text(stats.uptimeText).font(.caption).foregroundColor(.secondary)
+                }
             }
         }
         .padding()
@@ -2034,25 +2386,5 @@ struct ResourceStatsCard: View {
     }
 }
 
-// MARK: - Helpers
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default: (a, r, g, b) = (1, 1, 1, 0)
-        }
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
-    }
-}
+
+

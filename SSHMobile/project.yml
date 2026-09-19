@@ -6,6 +6,9 @@ packages:
   Citadel:
     url: https://github.com/orlandos-nl/Citadel.git
     from: "0.8.0"
+  swift-nio:
+    url: https://github.com/apple/swift-nio.git
+    from: "2.50.0"
 settings:
   base:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
@@ -23,6 +26,9 @@ targets:
     dependencies:
       - package: Citadel
         product: Citadel
+      - package: swift-nio
+        product: NIOCore
+
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.marekfx77.sshmobile
